@@ -1,0 +1,48 @@
+# Credenciales y secretos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.aws/
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Data sintética generada (CSVs grandes)
+data/output/
+ml/artifacts/*.pkl
+ml/artifacts/*.csv
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+build/
+.vercel/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Lambda build
+lambda/dist/
+lambda/.docker/
