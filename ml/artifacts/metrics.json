@@ -1,0 +1,46 @@
+{
+  "auc_roc": 0.8068432671081678,
+  "pr_auc": 0.7447581528121916,
+  "top_decile_capture": 0.208955223880597,
+  "n_train": 1506,
+  "n_test": 503,
+  "n_positives_train": 515,
+  "n_positives_test": 201,
+  "confusion_matrix_at_0.5": [
+    [
+      251,
+      51
+    ],
+    [
+      80,
+      121
+    ]
+  ],
+  "trained_at": "2026-05-19T21:51:30.156311+00:00",
+  "model_version": "v1",
+  "features": [
+    "ticket_avg_30d",
+    "ticket_avg_90d",
+    "ticket_avg_180d",
+    "n_facturas_30d",
+    "n_facturas_180d",
+    "delta_facturacion_30v90",
+    "delta_facturacion_30v180",
+    "delta_vs_mismo_mes_ya",
+    "plazo_avg_30d",
+    "plazo_avg_90d",
+    "plazo_avg_180d",
+    "delta_plazo_30v90",
+    "delta_plazo_30v180",
+    "ratio_pagos_tardios_90d",
+    "n_ofertas_historicas",
+    "tasa_aceptacion_historica",
+    "dias_desde_ultima_oferta",
+    "comprador_plazo_promedio",
+    "comprador_estacionalidad_q4",
+    "mes_actual",
+    "trimestre_actual",
+    "is_q4",
+    "is_pico_cosecha_agro"
+  ]
+}

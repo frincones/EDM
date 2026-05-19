@@ -1,0 +1,97 @@
+name: Deploy Lambda
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lambda/**"
+      - ".github/workflows/deploy-lambda.yml"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: edm-lambda-factoring
+  LAMBDA_FN: edm-factoring-scorer
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure ECR repo exists
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPO }} \
+            || aws ecr create-repository --repository-name ${{ env.ECR_REPO }} \
+                  --image-scanning-configuration scanOnPush=true
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          IMAGE=${REGISTRY}/${{ env.ECR_REPO }}:${{ env.IMAGE_TAG }}
+          IMAGE_LATEST=${REGISTRY}/${{ env.ECR_REPO }}:latest
+          docker build -t $IMAGE -t $IMAGE_LATEST -f lambda/Dockerfile lambda/
+          docker push $IMAGE
+          docker push $IMAGE_LATEST
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Ensure Lambda function exists or update
+        run: |
+          if aws lambda get-function --function-name ${{ env.LAMBDA_FN }} > /dev/null 2>&1; then
+            echo "Updating Lambda image..."
+            aws lambda update-function-code \
+              --function-name ${{ env.LAMBDA_FN }} \
+              --image-uri $IMAGE \
+              --publish
+          else
+            echo "Creating Lambda function..."
+            # Create execution role if not present
+            aws iam get-role --role-name edm-lambda-execution-role > /dev/null 2>&1 || \
+              aws iam create-role --role-name edm-lambda-execution-role \
+                --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+            aws iam attach-role-policy --role-name edm-lambda-execution-role \
+              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole || true
+            aws iam attach-role-policy --role-name edm-lambda-execution-role \
+              --policy-arn arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess || true
+            sleep 10  # role propagation
+            ROLE_ARN=$(aws iam get-role --role-name edm-lambda-execution-role --query Role.Arn --output text)
+            aws lambda create-function \
+              --function-name ${{ env.LAMBDA_FN }} \
+              --package-type Image \
+              --code ImageUri=$IMAGE \
+              --role $ROLE_ARN \
+              --timeout 30 \
+              --memory-size 1024 \
+              --architectures x86_64 \
+              --environment "Variables={MODEL_BUCKET=edm-demo-models,MODEL_PREFIX=factoring/v1/latest,SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}}"
+          fi
+
+      - name: Ensure Function URL
+        run: |
+          aws lambda get-function-url-config --function-name ${{ env.LAMBDA_FN }} > /dev/null 2>&1 || \
+            aws lambda create-function-url-config \
+              --function-name ${{ env.LAMBDA_FN }} \
+              --auth-type NONE \
+              --cors AllowOrigins=*,AllowMethods=*,AllowHeaders=*
+          URL=$(aws lambda get-function-url-config --function-name ${{ env.LAMBDA_FN }} --query FunctionUrl --output text)
+          echo "Lambda URL: $URL"
+          echo "## Lambda deployed" >> $GITHUB_STEP_SUMMARY
+          echo "URL: $URL" >> $GITHUB_STEP_SUMMARY
