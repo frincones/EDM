@@ -164,13 +164,20 @@ else
         --cors 'AllowOrigins="*",AllowMethods="*",AllowHeaders="*"' \
         --region "$AWS_REGION" \
         --query FunctionUrl --output text)
-    # permitir invocacion publica
+    # IMPORTANTE: AWS desde octubre 2025 requiere AMBOS permisos
+    # https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html
     aws lambda add-permission \
         --function-name "$LAMBDA_FN" \
-        --statement-id "FunctionURLAllowPublicAccess" \
+        --statement-id "UrlPolicyInvokeFunctionUrl" \
         --action lambda:InvokeFunctionUrl \
         --principal "*" \
         --function-url-auth-type NONE \
+        --region "$AWS_REGION" 2>&1 | head -3
+    aws lambda add-permission \
+        --function-name "$LAMBDA_FN" \
+        --statement-id "UrlPolicyInvokeFunction" \
+        --action lambda:InvokeFunction \
+        --principal "*" \
         --region "$AWS_REGION" 2>&1 | head -3
     echo "  Function URL creada: $URL"
 fi
