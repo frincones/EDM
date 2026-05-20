@@ -147,9 +147,21 @@ export default function FeedPage() {
               </div>
               <div className="text-right">
                 <p className={`${scoreToBadge(s.score)}`}>{(s.score * 100).toFixed(0)}/100</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {formatCOP(s.monto_potencial_centavos)}
-                </p>
+                {s.factura_monto_neto_centavos ? (
+                  <p className="text-xs text-slate-700 mt-1" title="Monto neto de la factura que disparó la señal">
+                    Factura{" "}
+                    <span className="font-semibold">
+                      {formatCOP(s.factura_monto_neto_centavos)}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500 mt-1" title="Volumen proyectado de factoring = ticket promedio × 3">
+                    Proy.{" "}
+                    <span className="font-semibold">
+                      {formatCOP(s.monto_potencial_centavos)}
+                    </span>
+                  </p>
+                )}
               </div>
               <Link
                 href={`/leads/${s.signal_id}`}

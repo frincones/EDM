@@ -98,11 +98,25 @@ export default async function LeadDetailPage({
             <div className={`score-bar-fill ${scoreToColor(signal.score)}`} style={{ width: `${signal.score * 100}%` }} />
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Monto potencial:{" "}
+            Volumen proyectado factoring:{" "}
             <span className="font-medium text-slate-700">
               {formatCOP(signal.monto_potencial_centavos)}
             </span>
+            <span className="block text-[10px] text-slate-400 mt-0.5">
+              (= ticket promedio últimos 30 días × 3)
+            </span>
           </p>
+          {signal.factura_monto_neto_centavos && (
+            <p className="text-xs text-slate-500 mt-2">
+              Factura que disparó esta señal:{" "}
+              <span className="font-medium text-slate-700">
+                {formatCOP(signal.factura_monto_neto_centavos)}
+              </span>
+              <span className="text-[10px] text-slate-400 ml-1">
+                · {signal.factura_fecha_emision} · {signal.factura_dias_plazo}d
+              </span>
+            </p>
+          )}
         </div>
       </header>
 

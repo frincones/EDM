@@ -64,7 +64,7 @@ export function LeadsTable({ signals }: { signals: any[] }) {
               <th className="px-4 py-3">Sector</th>
               <th className="px-4 py-3">Arquetipo</th>
               <th className="px-4 py-3 w-32">Score</th>
-              <th className="px-4 py-3">Monto potencial</th>
+              <th className="px-4 py-3" title="Volumen proyectado de factoring = ticket promedio últimos 30 días × 3">Volumen proy.</th>
               <th className="px-4 py-3 w-12"></th>
             </tr>
           </thead>
