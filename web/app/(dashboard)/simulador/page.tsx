@@ -17,11 +17,16 @@ export default async function SimuladorPage() {
     .select("id, razon_social")
     .order("razon_social");
 
-  if (pErr || cErr) {
+  const { data: relaciones, error: rErr } = await sb
+    .from("relaciones")
+    .select("id, proveedor_id, comprador_id")
+    .eq("status", "activa");
+
+  if (pErr || cErr || rErr) {
     return (
       <pre className="text-rose-600">
         Error al cargar maestros:{" "}
-        {JSON.stringify(pErr || cErr, null, 2)}
+        {JSON.stringify(pErr || cErr || rErr, null, 2)}
       </pre>
     );
   }
@@ -30,6 +35,7 @@ export default async function SimuladorPage() {
     <SimuladorClient
       proveedores={(proveedores || []) as any}
       compradores={(compradores || []) as any}
+      relaciones={(relaciones || []) as any}
     />
   );
 }

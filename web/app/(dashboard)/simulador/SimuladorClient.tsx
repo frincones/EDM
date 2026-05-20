@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Beaker, Send, RefreshCw, Sparkles } from "lucide-react";
 import { SCENARIOS } from "@/lib/scenarios";
 import { PipelineSteps, type Step } from "@/components/PipelineSteps";
@@ -13,18 +13,50 @@ type Proveedor = {
   arquetipo_visible: boolean;
 };
 type Comprador = { id: string; razon_social: string };
+type Relacion = { id: string; proveedor_id: string; comprador_id: string };
 
 export function SimuladorClient({
   proveedores,
   compradores,
+  relaciones,
 }: {
   proveedores: Proveedor[];
   compradores: Comprador[];
+  relaciones: Relacion[];
 }) {
-  // Pre-seleccionar el primer hero como proveedor y primer comprador
-  const heroDefault = proveedores.find((p) => p.arquetipo_visible);
-  const [provId, setProvId] = useState(heroDefault?.id || proveedores[0]?.id || "");
-  const [compId, setCompId] = useState(compradores[0]?.id || "");
+  // Filter only proveedores that have at least one relación (otherwise nothing to simulate)
+  const provsValidos = useMemo(() => {
+    const withRels = new Set(relaciones.map((r) => r.proveedor_id));
+    return proveedores.filter((p) => withRels.has(p.id));
+  }, [proveedores, relaciones]);
+
+  const heroDefault = provsValidos.find((p) => p.arquetipo_visible);
+  const [provId, setProvId] = useState(heroDefault?.id || provsValidos[0]?.id || "");
+
+  // Compradores VALIDOS = los que tienen relación con el proveedor seleccionado
+  const compradoresValidos = useMemo(() => {
+    if (!provId) return [];
+    const validIds = new Set(
+      relaciones.filter((r) => r.proveedor_id === provId).map((r) => r.comprador_id)
+    );
+    return compradores.filter((c) => validIds.has(c.id));
+  }, [provId, relaciones, compradores]);
+
+  const [compId, setCompId] = useState("");
+
+  // Cada vez que cambia el proveedor, auto-seleccionar primer comprador válido
+  useEffect(() => {
+    if (compradoresValidos.length > 0) {
+      // si el compId actual no es válido, resetear
+      const stillValid = compradoresValidos.some((c) => c.id === compId);
+      if (!stillValid) {
+        setCompId(compradoresValidos[0].id);
+      }
+    } else {
+      setCompId("");
+    }
+  }, [compradoresValidos, compId]);
+
   const [monto, setMonto] = useState("15000000");
   const [plazo, setPlazo] = useState("30");
   const [fecha, setFecha] = useState(() =>
@@ -107,6 +139,8 @@ export function SimuladorClient({
     }
   }
 
+  const selectedProveedor = provsValidos.find((p) => p.id === provId);
+
   return (
     <div className="space-y-6">
       <div className="flex items-baseline justify-between">
@@ -122,8 +156,7 @@ export function SimuladorClient({
             </Link>
             .{" "}
             <span className="text-slate-400">
-              ({proveedores.length} proveedores · {compradores.length} compradores
-              cargados)
+              ({provsValidos.length} proveedores · {relaciones.length} relaciones activas)
             </span>
           </p>
         </div>
@@ -142,14 +175,13 @@ export function SimuladorClient({
             <Send size={16} className="text-edn-600" /> Crear factura manual
           </h2>
           <div className="space-y-3">
-            <Field label={`Proveedor (${proveedores.length} disponibles)`}>
+            <Field label={`Proveedor (${provsValidos.length} con relaciones)`}>
               <select
                 value={provId}
                 onChange={(e) => setProvId(e.target.value)}
                 className="select"
               >
-                <option value="">— elegir —</option>
-                {proveedores.map((p) => (
+                {provsValidos.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.arquetipo_visible ? "⭐ " : ""}
                     {p.razon_social} ({p.arquetipo})
@@ -157,19 +189,30 @@ export function SimuladorClient({
                 ))}
               </select>
             </Field>
-            <Field label={`Comprador (${compradores.length} disponibles)`}>
+            <Field
+              label={`Comprador (${compradoresValidos.length} disponible${
+                compradoresValidos.length !== 1 ? "s" : ""
+              } para ${selectedProveedor?.razon_social || "este proveedor"})`}
+            >
               <select
                 value={compId}
                 onChange={(e) => setCompId(e.target.value)}
                 className="select"
               >
-                <option value="">— elegir —</option>
-                {compradores.map((c) => (
+                {compradoresValidos.length === 0 && (
+                  <option value="">— sin relaciones activas —</option>
+                )}
+                {compradoresValidos.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.razon_social}
                   </option>
                 ))}
               </select>
+              {compradoresValidos.length === 0 && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Este proveedor no tiene relaciones activas en el ecosistema.
+                </p>
+              )}
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Monto neto (COP)">
@@ -199,7 +242,7 @@ export function SimuladorClient({
             </Field>
             <button
               onClick={submitFactura}
-              disabled={running}
+              disabled={running || compradoresValidos.length === 0}
               className="btn-primary w-full disabled:opacity-50"
             >
               {running ? "Procesando..." : "Enviar al pipeline"}
