@@ -304,49 +304,156 @@ export function SimuladorClient({
       )}
 
       {result && !scenarioResult && (
-        <div className="card p-6">
-          <h2 className="text-sm font-semibold text-slate-900 mb-3">
-            Resultado final
-          </h2>
-          <div className="grid md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-xs uppercase text-slate-500">Score generado</p>
-              <p className="text-2xl font-bold">
-                {(result.score * 100).toFixed(0)}/100
-              </p>
-            </div>
-            <div>
-              <p className="text-xs uppercase text-slate-500">Tiempo total</p>
-              <p className="text-2xl font-bold">{result.total_ms}ms</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase text-slate-500">Signal id</p>
-              <p className="text-xs font-mono text-slate-700 break-all">
-                {result.signal_id}
-              </p>
+        <div className="space-y-4">
+          {/* Resumen ejecutivo */}
+          <div className="card p-6 border-l-4 border-l-edn-500 bg-edn-50/30">
+            <h2 className="text-sm font-semibold text-slate-900 mb-3">
+              Resultado del pipeline
+            </h2>
+            <div className="grid md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <p className="text-xs uppercase text-slate-500">Score generado</p>
+                <p className="text-3xl font-bold text-slate-900">
+                  {(result.score * 100).toFixed(0)}
+                  <span className="text-base text-slate-400">/100</span>
+                </p>
+                {result.score_before != null && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    antes: {(result.score_before * 100).toFixed(0)} (Δ{" "}
+                    {result.score > result.score_before ? "+" : ""}
+                    {((result.score - result.score_before) * 100).toFixed(1)})
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-xs uppercase text-slate-500">Tiempo total</p>
+                <p className="text-3xl font-bold text-slate-900">{result.total_ms}ms</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-slate-500">Factura ID</p>
+                <p className="text-xs font-mono text-slate-700 break-all">
+                  {result.factura_persisted?.external_id}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-slate-500">Signal ID</p>
+                <p className="text-xs font-mono text-slate-700 break-all">
+                  {result.signal_id?.slice(0, 8)}…
+                </p>
+              </div>
             </div>
           </div>
+
+          {/* Lo que se persistió: AMOUNT TRANSPARENCY */}
+          <div className="card p-6">
+            <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+              💰 La factura que ingresó al sistema
+            </h2>
+            <p className="text-xs text-slate-500 mb-3">
+              Este es el registro EXACTO que quedó en la base de datos tras tu ingesta.
+            </p>
+            <div className="grid md:grid-cols-3 gap-4 text-sm">
+              <FactItem
+                label="Monto neto (lo que ingresaste)"
+                value={formatPesos(result.factura_persisted?.monto_neto_pesos)}
+                highlight
+              />
+              <FactItem
+                label="IVA 19%"
+                value={formatPesos(result.factura_persisted?.impuestos_pesos)}
+              />
+              <FactItem
+                label="Monto bruto total"
+                value={formatPesos(result.factura_persisted?.monto_bruto_pesos)}
+              />
+              <FactItem
+                label="Fecha emisión"
+                value={result.factura_persisted?.fecha_emision}
+              />
+              <FactItem
+                label="Fecha vencimiento"
+                value={result.factura_persisted?.fecha_vencimiento}
+              />
+              <FactItem
+                label="Plazo"
+                value={`${result.factura_persisted?.dias_plazo} días`}
+              />
+            </div>
+          </div>
+
+          {/* Cómo CAMBIARON las features tras tu inyección */}
+          <div className="card p-6">
+            <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+              📊 Cómo cambiaron las features de este par (proveedor, comprador)
+            </h2>
+            <p className="text-xs text-slate-500 mb-3">
+              El motor recalculó esto en tiempo real (paso 3 del pipeline). Es la
+              evidencia de que TU factura fue procesada.
+            </p>
+            <div className="grid md:grid-cols-2 gap-3 text-sm">
+              <DeltaRow
+                label="Ticket promedio últimos 30 días"
+                before={formatPesos(result.features_change?.ticket_avg_30d_before_pesos)}
+                after={formatPesos(result.features_change?.ticket_avg_30d_after_pesos)}
+                deltaPct={result.features_change?.delta_pct}
+              />
+              <DeltaRow
+                label="Δ facturación 30d vs 6 meses"
+                before={`${(
+                  (result.features_change?.delta_facturacion_30v180_before || 0) *
+                  100
+                ).toFixed(1)}%`}
+                after={`${(
+                  (result.features_change?.delta_facturacion_30v180_after || 0) *
+                  100
+                ).toFixed(1)}%`}
+              />
+            </div>
+          </div>
+
+          {/* Por qué ese score (SHAP) */}
           {result.razones && (
-            <div className="mt-4">
-              <p className="text-xs uppercase text-slate-500 mb-2">
-                Razones (SHAP)
-              </p>
-              <ul className="text-sm space-y-1">
+            <div className="card p-6">
+              <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                🧠 Razones del modelo (SHAP del Lambda XGBoost)
+              </h2>
+              <ul className="text-sm space-y-2">
                 {result.razones.map((r: any, i: number) => (
                   <li key={i} className="flex items-start gap-2">
                     <span
-                      className={
+                      className={`mt-0.5 ${
                         r.contribution > 0 ? "text-emerald-600" : "text-rose-500"
-                      }
+                      }`}
                     >
                       {r.contribution > 0 ? "↑" : "↓"}
                     </span>
-                    {r.label}
+                    <div className="flex-1">
+                      <span>{r.label}</span>{" "}
+                      <span
+                        className={`text-xs font-mono ${
+                          r.contribution > 0 ? "text-emerald-700" : "text-rose-700"
+                        }`}
+                      >
+                        ({r.contribution > 0 ? "+" : ""}
+                        {r.contribution?.toFixed(2)})
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ul>
             </div>
           )}
+
+          {/* Nota sobre monto factoring estimado */}
+          <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded p-3">
+            <strong>Sobre el "monto potencial" que ves en /feed:</strong> es una
+            estimación del volumen de factoring proyectado (= ticket promedio 30d ×
+            3). Es distinto al monto neto de la factura que ingresaste — ese ya quedó
+            persistido tal cual lo escribiste.
+            <br />
+            En este caso: monto factoring estimado ={" "}
+            {formatPesos(result.monto_factoring_estimado_pesos)}.
+          </div>
         </div>
       )}
     </div>
@@ -366,4 +473,66 @@ function Field({
       {children}
     </div>
   );
+}
+
+function FactItem({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string | undefined;
+  highlight?: boolean;
+}) {
+  return (
+    <div className={`border rounded p-3 ${highlight ? "border-edn-300 bg-edn-50" : "border-slate-200"}`}>
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className={`font-semibold mt-1 ${highlight ? "text-edn-700" : "text-slate-900"}`}>
+        {value || "—"}
+      </p>
+    </div>
+  );
+}
+
+function DeltaRow({
+  label,
+  before,
+  after,
+  deltaPct,
+}: {
+  label: string;
+  before: string;
+  after: string;
+  deltaPct?: number | null;
+}) {
+  return (
+    <div className="border border-slate-100 rounded p-3">
+      <p className="text-xs text-slate-500 mb-2">{label}</p>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-slate-500">antes</span>
+        <span className="font-mono">{before}</span>
+        <span className="text-slate-300">→</span>
+        <span className="font-semibold text-slate-900">{after}</span>
+        {deltaPct != null && (
+          <span
+            className={`ml-auto text-xs font-medium ${
+              deltaPct > 0 ? "text-emerald-700" : deltaPct < 0 ? "text-rose-700" : "text-slate-500"
+            }`}
+          >
+            {deltaPct > 0 ? "+" : ""}
+            {deltaPct.toFixed(0)}%
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatPesos(pesos: number | undefined | null): string {
+  if (pesos == null) return "—";
+  const n = Number(pesos);
+  if (Math.abs(n) >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B COP`;
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M COP`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K COP`;
+  return `$${n.toFixed(0)} COP`;
 }
