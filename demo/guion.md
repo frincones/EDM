@@ -1,162 +1,209 @@
-# Guión Demo EDN — Factoring Signals Engine
+# Guión demo EDN — versión interactiva (con simulador en vivo)
 
-> 20 minutos · Audiencia: Felipe + Emma + equipo técnico de EDN
-> URL del demo: **https://edm-demo-pi.vercel.app**
+> 25 minutos · Audiencia: Felipe + Emma + equipo técnico de EDN
+> Demo URL: **https://edm-demo-pi.vercel.app**
 > Repo: **https://github.com/frincones/EDM**
 
 ---
 
 ## Pre-demo (5 min antes)
 
-- [ ] Abrir https://edm-demo-pi.vercel.app/leads en una pestaña
-- [ ] Abrir https://edm-demo-pi.vercel.app/feed en otra pestaña
-- [ ] Abrir terminal lista con: `python demo/replay.py`
-- [ ] Cargar `.env` en esa terminal
-- [ ] Probar conectividad: refresh /feed → debe decir "● conectado"
+- [ ] Abrir 2 pestañas del browser:
+   - Pestaña 1: https://edm-demo-pi.vercel.app/feed (queda visible)
+   - Pestaña 2: https://edm-demo-pi.vercel.app/simulador (para interactuar)
+- [ ] Verificar que `/feed` diga "● conectado" arriba
+- [ ] Tener listo el guión
 
 ---
 
-## Minutos 0–3 — El problema reformulado
+## Minuto 0–3 — El problema reformulado
 
-**Slide o frase de apertura:**
+> "Felipe, en mayo nos dijiste algo que se nos quedó: *'el banco sabe quién necesita factoring estructuralmente — el problema es saber cuándo específicamente lo necesita.'*
+> Te traemos esa respuesta. Y para que no nos creas a ciegas, vas a poder probar el sistema con tus propias manos hoy mismo."
 
-> "Felipe, en la primera reunión nos dijiste algo que se nos quedó:
-> *'el banco ya sabe quién necesita factoring estructuralmente — el problema es saber **cuándo** específicamente lo necesita.'*
->
-> Construimos eso. Te lo muestro en vivo."
-
-**Métricas que aterrizan el dolor:**
-- Hoy llaman a 5.000 proveedores (Sodexo + ACER) → 10% conversión
-- 4.500 llamadas/mes son desperdicio
-- Riesgo: degrada experiencia + ineficiencia + leads perdidos
+Mostrar números del problema:
+- 5.000 proveedores Sodexo+ACER
+- ~10% conversión cold call
+- 4.500 llamadas/mes desperdiciadas
 
 ---
 
-## Minutos 3–6 — Vista de leads priorizados
+## Minuto 3–6 — Dashboard `/leads` (con buscador)
 
-**Abrir:** `/leads`
+> "Estos son los 84 leads priorizados que el motor scoreó hoy. Verde = alta propensión."
 
-> "Lo que ven es el dashboard del equipo comercial. Cada fila es un par (proveedor, comprador) que el motor scoreó. Verde = alta propensión a aceptar factoring AHORA."
+**Mostrar buscador:**
+- Escribir "Arrocera" → filtra a 1 fila → Arrocera del Tolima en top
+- Limpiar búsqueda
+- Slider de score mínimo: arrastrar a 70 → muestra solo los altos
 
-**Scrollear:**
-- Mostrar que los top scoreados son arroceros + crecimiento + plazos comprimidos
-- Resaltar las estrellitas ⭐ (heroes con narrativas curadas)
-- "Esto es lo que tu comercial vería cada mañana — los 50 leads de hoy"
-
-**Filtros mencionables (aún si no están implementados como UI):**
-> "En producción agregaríamos filtros por comprador, sector, rango de monto. El demo prioriza visualizar el ranking."
+> "Tu equipo comercial empieza el día acá."
 
 ---
 
-## Minutos 6–12 — Detalle por proveedor (3 heroes)
+## Minuto 6–10 — Detalle de Arrocera del Tolima (HERO)
 
-### Hero 1: **Arrocera del Tolima Ltda.**
+Click en Arrocera del Tolima.
 
-> "Click acá. Score 99. ¿Por qué? Miren las razones SHAP que devolvió el modelo:"
+**Mostrar (de arriba hacia abajo):**
 
-- "Está en pico de cosecha agrícola" → ✅ Felipe había mencionado este patrón
-- "Facturación creció X% vs últimos 6 meses"
-- "Sector arrocero — Tolima en cosecha mayo-junio"
+1. **Sección "En lenguaje simple"** (lo nuevo):
+   > Felipe lee el párrafo en español. Sin terminología técnica.
 
-> "Felipe, esto es **exactamente** el caso que vos describiste: *'el sector arrocero hace muchas operaciones de factoring porque son cíclicas, en cosecha están facturando mucho.'* El modelo lo detectó en el flujo de OCs y facturas."
+2. **SHAP Waterfall** — barras verdes/rojas:
+   > "Este score 100 se compone así: el punto de partida del modelo era 50.  
+   > '+47% por estar en cosecha agrícola' (Tolima en mayo) → +28 al score.  
+   > '+109% crecimiento YoY' → +19 al score.  
+   > Te muestro CADA componente. No es magia."
 
-### Hero 2: **Distribuidora El Llano S.A.S.**
+3. **Tabla "Facturas que más pesaron en la señal"**:
+   > "Estas 5 facturas son las que el motor 'miró' para decidir. Mirá la columna 'vs promedio histórico' — esta del 12 de mayo es 91% más alta que el promedio de Arrocera."
 
-> "Otro caso. Score 93. Acá la señal es distinta:"
-
-- "Facturación creció 47% en últimos 60 días"
-- "Crecimiento sostenido vs trimestre anterior"
-
-> "Este señor está creciendo y necesita liquidez para soportar ese crecimiento. **Cuando uno incrementa, normalmente necesita mayor financiación** — palabras tuyas."
-
-### Hero 3: **Industrias Estables S.A.**
-
-> "Y este — score 5. Negativo claro. 18 meses planos, sin señales. **No le perdés tiempo llamando.** Eso es el ahorro."
+4. **Sector Baseline**:
+   > "Y se compara con el sector arrocero — ticket promedio del sector vs el suyo. Está bien por encima."
 
 ---
 
-## Minutos 12–16 — Feed en vivo (el wow factor)
+## Minuto 10–12 — Metodología (`/metodologia`)
 
-**Cambiar a pestaña** `/feed`
+Cambiar a `/metodologia`.
 
-> "Esta es la vista que está conectada por WebSocket a Supabase. Cada vez que entra una factura nueva al ecosistema EDN, el motor scorea, y si supera umbral, aparece acá."
+> "Acá la transparencia total: estos son los 5 arquetipos del modelo, y cada uno con TU cita textual que originó la idea."
 
-**[EN OTRA TERMINAL] ejecutar:**
-```bash
-python demo/replay.py
-```
+Mostrar arquetipo "Ciclicidad agrícola" con la quote:
+> *"Si alguien hace una operación de factoring hoy, que es del sector arrocero, y el sector arrocero hace muchas operaciones de factoring en este momento, porque son cíclicas las operaciones..."*  
+> — **Felipe, llamada de descubrimiento**
 
-→ Cada 4-6 segundos aparece una señal nueva en pantalla con animación fade-in.
+> "Cada arquetipo está soportado por algo que VOS dijiste. No inventamos nada."
 
-> "Esto es lo que tu equipo vería en su segundo monitor todo el día.
-> Notificaciones priorizadas, no spam."
+Mostrar gráfico de distribución de arquetipos y de scores.
 
 ---
 
-## Minutos 16–18 — Impacto cuantitativo
+## ⭐ Minuto 12–18 — Simulador en vivo (el momento killer)
 
-**Cambiar a** `/stats`
+Cambiar a `/simulador`. La pestaña de `/feed` debe seguir abierta en otra ventana visible.
 
-> "Si tu equipo trabaja solo el top de leads del motor:"
+> "Ahora vamos a hacer algo que NINGÚN demo te va a permitir hacer: vas a inyectar tu propia factura y ver cómo el sistema reacciona en vivo."
 
-- Antes: 5.000 llamadas / mes → 500 cerradas (10%)
-- Con motor: ~84 llamadas dirigidas → ~30 cerradas (35%)
-- **80% menos esfuerzo, 3× operaciones cerradas relativas**
+### Opción A — Escenario pre-armado
 
-> "Y esto mejora con cada llamada. Cada outcome que tu comercial marca (cerrada/rechazada/no contesta) re-entrena el modelo. El sistema aprende de la operación de EDN."
+Click en **🌾 Cosecha sorpresiva**.
 
----
+Verán:
+1. Los 5 pasos del pipeline ejecutándose con timing real:
+   - POST /ingest a Edge Function de Supabase → 234ms
+   - INSERT en facturas → 145ms
+   - REFRESH features point-in-time → 612ms
+   - POST /score al Lambda XGBoost en AWS → 423ms
+   - INSERT signal + Realtime push → 89ms
+2. Antes/Después con el score subiendo
+3. **En la otra pestaña /feed: aparece la nueva señal con highlight + toast**
 
-## Minutos 18–20 — Arquitectura técnica + siguientes pasos
+> "Eso que viste fue una factura REAL viajando por una arquitectura REAL — Supabase, AWS Lambda, vuelta a Supabase. En 1.5 segundos."
 
-**Para el equipo técnico:**
+### Opción B — Pedirle a Felipe
 
-> "Lo que están viendo NO es un mockup. Es:
-> - Frontend en Vercel (Next.js 14)
-> - Datos en Supabase Postgres con RLS, feature engineering en SQL + pg_cron
-> - Inferencia ML en AWS Lambda (container con XGBoost + SHAP)
-> - Modelo entrenado guardado en S3
-> - Realtime push vía WebSocket Supabase
->
-> Costo de operación del demo: **$0** (todo dentro de free tiers).
-> En producción esta misma arquitectura escala hasta ~10M predicciones/mes sin cambiar nada."
+> "Felipe, ahora elegí TÚ un proveedor del dropdown, dame un monto que quieras, y un plazo. Lo metemos juntos."
 
-**Para Felipe:**
-
-> "Lo único distinto a producción es:
-> 1. Los datos son sintéticos (65 proveedores + 32K eventos)
-> 2. Necesitamos conectar tu core para que reemplace la fuente
->
-> Próximo paso: **agendar una sesión técnica con tu equipo** para definir el contrato del webhook (los 5 eventos clave) y plantear un piloto con Sodexo o ACER como caso inicial."
+Felipe llena el form → submit → mismo flujo. Score cambia.
 
 ---
 
-## Anexo — Q&A esperadas
+## Minuto 18–20 — Sistema (`/sistema`)
 
-**P: "¿Y si no tenemos suficiente data histórica de outcomes?"**
-> "El sistema arranca con reglas heurísticas + arquetipos conocidos (los 4 que vos mencionaste). En 30-60 días con outcomes capturados, se entrena el primer XGBoost real. Es construcción incremental, no big-bang."
+> "Y para los técnicos: este es el estado de cada pieza en vivo."
 
-**P: "¿Cómo separamos data de Sodexo vs ACER?"**
-> "Supabase tiene Row Level Security: cada query del frontend filtra por el rol del usuario. Sodexo nunca ve leads de ACER. Es parte del schema, no addon."
+Mostrar health checks:
+- Supabase: OK · 234ms · model_version v1 · 23 features
+- AWS Lambda: OK
+- Vercel: OK
 
-**P: "¿Qué pasa si el modelo se equivoca?"**
-> "Por eso el feedback loop. Cada llamada — cerrada o rechazada — entra a la tabla `call_outcomes` y alimenta el próximo training. Es un sistema que mejora, no estático."
+Mostrar tablas con counts (cuántos eventos, facturas, signals).
 
-**P: "¿Cuánto cuesta en producción real?"**
-> "Para volumen estimado de EDN (5K proveedores, ~10K facturas/mes):
-> - Supabase Pro: $25/mes
-> - AWS Lambda + S3: ~$5-15/mes (dentro de free tier para esos volúmenes)
-> - Vercel Pro: $20/mes
-> - **Total: ~$60/mes** mientras esté chico. Escala lineal."
+Mostrar los últimos 15 eventos ingresados — los que Felipe acaba de generar aparecen ahí con su timestamp.
 
-**P: "¿Y si quiero ver el modelo entrenándose?"**
-> "El notebook está en `ml/train.py`. Tarda 30 segundos. Saca data de Supabase, entrena XGBoost, sube .pkl a S3. La Lambda lo recoge automáticamente."
+> "Felipe, esto es lo que tu equipo de DevOps podrá monitorear todos los días."
 
 ---
 
-## Cierre
+## Minuto 20–22 — Feed con alertas (`/feed`)
 
-> "Construimos esto en 1 semana, $0, totalmente desplegado.
-> En producción con tu data alcanzaría >0.85 AUC en menos de 2 meses de captura de outcomes.
->
-> ¿Cuándo agendamos la sesión técnica?"
+> "Última pieza: el feed que verá tu comercial."
+
+En `/feed` (en una pestaña), buscar "Arrocera" arriba.
+
+> "Ahora dejo esa búsqueda activa. Si llega cualquier señal que mencione Arrocera, vamos a tener una alerta arriba a la derecha."
+
+Volver a `/simulador`, ejecutar otro escenario:
+- En `/feed`: aparece el AlertToast: 🔔 Arrocera del Tolima... Score 99/100
+
+---
+
+## Minuto 22–25 — Cierre + handoff de verificación
+
+> "Felipe, te paso 4 cosas para que tu equipo valide después de la reunión:
+> 
+> 1. **URL pública del Lambda** — pueden hacerle curl, ver que devuelve los mismos scores
+>    `https://gq2wqiw2n46rafrh2aekl4jkzi0iueth.lambda-url.us-east-1.on.aws/health`
+> 
+> 2. **Repo GitHub público** — código del modelo, schema SQL, generador  
+>    `https://github.com/frincones/EDM`
+> 
+> 3. **El script `validate_end_to_end.py`** — corre 5 chequeos automáticos:
+>    - Modelo en S3 hash = local hash
+>    - Signals provienen del modelo v1
+>    - Lambda /score = scores precomputados
+>    - Vercel data = Supabase data
+>    - Realtime push funciona
+> 
+> 4. **La URL del simulador** — pueden seguir agregando facturas y mirar cómo reacciona el modelo
+>    `https://edm-demo-pi.vercel.app/simulador`
+> 
+> Si en algún momento tu equipo encuentra algo que no cuadra, lo discutimos. La transparencia es por diseño."
+
+**Cerrar con:**
+> "¿Cuándo agendamos el piloto con Sodexo o ACER?"
+
+---
+
+## Cómo Felipe puede verificar TODO por su cuenta (post-demo)
+
+| Qué validar | Cómo |
+|------------|------|
+| ¿El modelo es real, no random? | `/sistema` → click en Lambda URL → ver score; repetir con mismo ID = mismo score |
+| ¿Las señales vienen de SU pipeline? | `/simulador` → inyectar factura → verla aparecer en `/feed` con su timestamp |
+| ¿La explicación es del modelo, no plantilla? | Cambiar features en form (monto, plazo) → ver razones SHAP cambiar |
+| ¿La data es real de Supabase? | `/sistema` → tabla "Tablas" con cuentas en vivo + último timestamp |
+| ¿El modelo aprende? | Ver `/metodologia` → AUC 0.807, dataset 1.506 outcomes históricos |
+| ¿Los arquetipos coinciden con lo que dije? | `/metodologia` → cada arquetipo tiene MI cita textual |
+| ¿La arquitectura es producción-grade? | Repo GitHub → leer `infra/aws/deploy_lambda.sh`, `infra/supabase/migrations/` |
+
+---
+
+## Recuperación si algo falla durante la demo
+
+| Problema | Fallback |
+|----------|----------|
+| Lambda cold start lento (3-5s) | Decirle a Felipe: "vamos a 'despertar' al Lambda" → click en /sistema (hace health check) → ahora warm. |
+| Internet falla | Tener `/leads`, `/leads/[hero-id]`, `/metodologia` ya cargados en el browser cache |
+| Supabase momentáneamente lento | Mostrar el código del simulador en otra pestaña — Felipe ve la lógica igual |
+| Escenario falla | Hacer la inyección manual con el form — más lento pero igual de impactante |
+
+---
+
+## URLs claves para tener listas
+
+- **Demo en vivo:** https://edm-demo-pi.vercel.app
+- **Simulador (la pestaña que más vas a usar):** https://edm-demo-pi.vercel.app/simulador
+- **Feed (otra pestaña abierta):** https://edm-demo-pi.vercel.app/feed
+- **Lambda URL pública:** https://gq2wqiw2n46rafrh2aekl4jkzi0iueth.lambda-url.us-east-1.on.aws/health
+- **Repo:** https://github.com/frincones/EDM
+
+---
+
+## Costo total del sistema mostrado: **$0**
+
+Free tiers de Supabase + AWS Lambda + Vercel + S3.
+
+En producción real con EDN, el costo escalaría a ~$60-150 USD/mes hasta ~10M predicciones/mes.

@@ -1,35 +1,30 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { formatCOP, scoreToColor, scoreToBadge, archetypeLabel } from "@/lib/format";
+import { formatCOP, scoreToBadge, archetypeLabel } from "@/lib/format";
 import { Radio, Sparkles } from "lucide-react";
-
-type SignalRow = {
-  id: string;
-  created_at: string;
-  score: number;
-  monto_potencial_centavos: number | null;
-  razones: any[];
-  model_version: string;
-  proveedor_id: string;
-  comprador_id: string;
-};
+import { SearchBar } from "@/components/SearchBar";
+import { AlertToast, type ToastItem } from "@/components/AlertToast";
 
 export default function FeedPage() {
   const supabase = createClient();
   const [items, setItems] = useState<any[]>([]);
   const [connected, setConnected] = useState(false);
+  const [q, setQ] = useState("");
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let mounted = true;
+    let activeQuery = q;
 
     async function loadInitial() {
       const { data } = await supabase
         .from("v_top_leads")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(40);
+        .limit(60);
       if (mounted && data) setItems(data);
     }
     loadInitial();
@@ -40,14 +35,39 @@ export default function FeedPage() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "signals" },
         async (payload) => {
-          // Fetch full row from view for the new signal
-          const sig = payload.new as SignalRow;
+          const sig = payload.new as any;
           const { data } = await supabase
             .from("v_top_leads")
             .select("*")
             .eq("signal_id", sig.id)
             .single();
-          if (data) setItems((prev) => [data, ...prev].slice(0, 60));
+          if (!data) return;
+
+          setItems((prev) => [data, ...prev].slice(0, 80));
+          setNewIds((prev) => new Set(prev).add(data.signal_id));
+          setTimeout(() => {
+            setNewIds((prev) => {
+              const n = new Set(prev);
+              n.delete(data.signal_id);
+              return n;
+            });
+          }, 3000);
+
+          // Show toast if matches active search OR if high score
+          const match = activeQuery
+            ? `${data.proveedor_nombre} ${data.comprador_nombre} ${data.proveedor_sector}`
+                .toLowerCase()
+                .includes(activeQuery)
+            : data.score >= 0.85;
+          if (match) {
+            const toast: ToastItem = {
+              id: data.signal_id,
+              title: `🔔 ${data.proveedor_nombre}`,
+              description: data.razones?.[0]?.label || archetypeLabel(data.arquetipo),
+              score: data.score,
+            };
+            setToasts((prev) => [toast, ...prev].slice(0, 3));
+          }
         }
       )
       .subscribe((status) => {
@@ -60,8 +80,28 @@ export default function FeedPage() {
     };
   }, []);
 
+  // Keep activeQuery ref in sync
+  useEffect(() => {
+    (window as any).__activeQuery = q;
+  }, [q]);
+
+  const filtered = useMemo(() => {
+    if (!q) return items;
+    return items.filter((s) =>
+      `${s.proveedor_nombre} ${s.comprador_nombre} ${s.proveedor_sector} ${s.arquetipo}`
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [items, q]);
+
+  function dismissToast(id: string) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
+
   return (
     <div className="space-y-6">
+      <AlertToast items={toasts} onDismiss={dismissToast} />
+
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <Radio className="text-edn-600" /> Feed en vivo
@@ -70,21 +110,26 @@ export default function FeedPage() {
           </span>
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Las nuevas señales aparecen en tiempo real (Supabase Realtime sobre tabla `signals`).
+          Cada vez que el motor emite una nueva señal, aparece acá. Las que coincidan con tu búsqueda generan alerta arriba a la derecha.
         </p>
       </div>
 
+      <SearchBar
+        placeholder="Buscar por proveedor, comprador o sector — recibís alertas cuando algo nuevo matchee..."
+        onSearch={setQ}
+      />
+
       <div className="space-y-2">
-        {items.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="card p-8 text-center text-slate-500">
-            Cargando señales...
+            {q ? `Sin señales que coincidan con "${q}"` : "Cargando señales..."}
           </div>
         ) : (
-          items.map((s, i) => (
+          filtered.map((s) => (
             <div
               key={s.signal_id}
-              className={`card p-4 flex items-start gap-4 animate-slideIn ${
-                i === 0 && connected ? "ring-2 ring-edn-300" : ""
+              className={`card p-4 flex items-start gap-4 ${
+                newIds.has(s.signal_id) ? "ring-2 ring-edn-400 animate-slideIn" : ""
               }`}
             >
               <div className="w-2 self-stretch rounded-full bg-edn-500" />
@@ -102,9 +147,14 @@ export default function FeedPage() {
               </div>
               <div className="text-right">
                 <p className={`${scoreToBadge(s.score)}`}>{(s.score * 100).toFixed(0)}/100</p>
-                <p className="text-xs text-slate-500 mt-1">{formatCOP(s.monto_potencial_centavos)}</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {formatCOP(s.monto_potencial_centavos)}
+                </p>
               </div>
-              <Link href={`/leads/${s.signal_id}`} className="text-edn-600 text-sm hover:underline">
+              <Link
+                href={`/leads/${s.signal_id}`}
+                className="text-edn-600 text-sm hover:underline"
+              >
                 Ver →
               </Link>
             </div>

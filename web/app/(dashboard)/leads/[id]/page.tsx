@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/server";
-import { formatCOP, scoreToColor, scoreToBadge, archetypeLabel } from "@/lib/format";
-import { ArrowLeft, TrendingUp, TrendingDown, Calendar, FileText } from "lucide-react";
+import { formatCOP, scoreToColor, archetypeLabel } from "@/lib/format";
+import { ArrowLeft, Calendar, FileText } from "lucide-react";
 import { HistoryChart } from "@/components/HistoryChart";
 import { CallOutcomeForm } from "@/components/CallOutcomeForm";
+import { PlainLanguageExplanation } from "@/components/PlainLanguageExplanation";
+import { SHAPWaterfall } from "@/components/SHAPWaterfall";
+import { FacturaContributions } from "@/components/FacturaContributions";
+import { SectorBaseline } from "@/components/SectorBaseline";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +41,28 @@ export default async function LeadDetailPage({
     .eq("proveedor_id", signal.proveedor_id)
     .eq("comprador_id", signal.comprador_id)
     .single();
+
+  // Top facturas que pesaron en la señal
+  const { data: relacionRow } = await sb
+    .from("relaciones")
+    .select("id")
+    .eq("proveedor_id", signal.proveedor_id)
+    .eq("comprador_id", signal.comprador_id)
+    .single();
+  let topFacts: any[] = [];
+  if (relacionRow) {
+    const { data: tf } = await sb.rpc("top_facturas_para_lead", {
+      p_relacion_id: relacionRow.id,
+      p_limit: 5,
+    });
+    topFacts = tf || [];
+  }
+
+  // Sector baseline
+  const { data: sectorRow } = await sb.rpc("sector_baseline", {
+    p_proveedor_id: signal.proveedor_id,
+  });
+  const sector = Array.isArray(sectorRow) ? sectorRow[0] : sectorRow;
 
   const chartData = (facturas ?? []).map((f) => ({
     fecha: f.fecha_emision,
@@ -72,33 +98,32 @@ export default async function LeadDetailPage({
             <div className={`score-bar-fill ${scoreToColor(signal.score)}`} style={{ width: `${signal.score * 100}%` }} />
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Monto potencial: <span className="font-medium text-slate-700">{formatCOP(signal.monto_potencial_centavos)}</span>
+            Monto potencial:{" "}
+            <span className="font-medium text-slate-700">
+              {formatCOP(signal.monto_potencial_centavos)}
+            </span>
           </p>
         </div>
       </header>
 
-      <section className="card p-6">
-        <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-          <TrendingUp size={16} className="text-edn-600" /> Razones del score (SHAP)
-        </h2>
-        <div className="space-y-3">
-          {(signal.razones || []).map((r: any, i: number) => (
-            <div key={i} className="flex items-start gap-3">
-              <div className={`mt-0.5 ${r.contribution > 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                {r.contribution > 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-slate-900">{r.label}</p>
-                <p className="text-xs text-slate-500">
-                  Contribución al score: <span className={r.contribution > 0 ? "text-emerald-600" : "text-rose-500"}>
-                    {r.contribution > 0 ? "+" : ""}{(r.contribution * 100).toFixed(1)} pts
-                  </span>
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <PlainLanguageExplanation
+        proveedor={signal.proveedor_nombre}
+        comprador={signal.comprador_nombre}
+        arquetipo={signal.arquetipo}
+        score={signal.score}
+        razones={signal.razones || []}
+        features={features || {}}
+      />
+
+      <SHAPWaterfall score={signal.score} razones={signal.razones || []} />
+
+      <FacturaContributions rows={topFacts} />
+
+      <SectorBaseline
+        sectorRow={sector}
+        proveedorTicket={features ? Number(features.ticket_avg_30d) : 0}
+        proveedorPlazo={features ? Number(features.plazo_avg_30d) : 30}
+      />
 
       <section className="grid lg:grid-cols-2 gap-6">
         <div className="card p-6">
@@ -116,21 +141,6 @@ export default async function LeadDetailPage({
       </section>
 
       <section className="card p-6">
-        <h2 className="text-sm font-semibold text-slate-900 mb-4">Features actuales (snapshot)</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          {features && Object.entries(features as any)
-            .filter(([k]) => !["relacion_id", "proveedor_id", "comprador_id", "snapshot_at"].includes(k))
-            .slice(0, 16)
-            .map(([k, v]) => (
-              <div key={k} className="border border-slate-100 rounded p-2">
-                <p className="text-xs text-slate-500 truncate">{k}</p>
-                <p className="font-medium text-slate-800 text-sm">{formatFeature(k, v)}</p>
-              </div>
-            ))}
-        </div>
-      </section>
-
-      <section className="card p-6">
         <h2 className="text-sm font-semibold text-slate-900 mb-4">Registrar resultado de llamada</h2>
         <CallOutcomeForm signalId={signal.signal_id} proveedorId={signal.proveedor_id} />
         {signal.ultimo_outcome && (
@@ -141,20 +151,4 @@ export default async function LeadDetailPage({
       </section>
     </div>
   );
-}
-
-function formatFeature(key: string, value: any): string {
-  if (value == null) return "—";
-  const n = Number(value);
-  if (isNaN(n)) return String(value);
-  if (key.includes("centavos") || key.startsWith("ticket")) {
-    return formatCOP(n);
-  }
-  if (key.startsWith("delta") || key.startsWith("ratio") || key.startsWith("tasa") || key.startsWith("comprador_estac")) {
-    return n.toFixed(3);
-  }
-  if (key.includes("dias") || key.includes("plazo") || key.startsWith("n_") || key === "mes_actual") {
-    return Math.round(n).toString();
-  }
-  return n.toFixed(2);
 }
